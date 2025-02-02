@@ -1,5 +1,5 @@
 const FAQ = require("../models/faq");
-// const { redisClient } = require("../util/redis");
+const getRedisClient = require("../util/redis");
 const axios = require("axios");
 
 const GOOGLE_TRANSLATE_API = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=";
@@ -33,14 +33,19 @@ exports.addFAQ = async (req, res, next) => {
       }
     });
 
-    await faq.save();
-    console.log("Post request received and reponse sent.");
+    const newFaq = await faq.save();
+    const redisClient = await getRedisClient();
+    let cachedFAQs = await redisClient.get(`faqs`);
+    console.log(cachedFAQs,typeof cachedFAQs, "line 39");
+    cachedFAQs = cachedFAQs ? [...JSON.parse(cachedFAQs), newFaq]: [newFaq];
+
+    await redisClient.set(`faqs`, JSON.stringify(cachedFAQs));
     
     res.status(201).json({ "message": "FAQ added successfully", faq });
   } catch (err) {
     console.log(err, "Error adding FAQ");
     
-    res.status(500).json({ "message": "Error adding FAQ",  });
+    res.status(500).json({ "message": "Error adding FAQ", "reason": err });
   }
 };
 
@@ -49,14 +54,23 @@ exports.getFAQs = async (req, res, next) => {
         const lang = req.query.lang || "en";
       
         // Check Redis Cache
-        // const cachedFAQs = await redisClient.get(`faqs:${lang}`);
-        // if (cachedFAQs) return res.json(JSON.parse(cachedFAQs));
-      
+        const redisClient = await getRedisClient();
+        console.log(redisClient !== undefined, 'Whats in');
+        
+        let cachedFAQs = await redisClient.get(`faqs`);
+        if (cachedFAQs) {
+            console.log(cachedFAQs,"000000");
+            cachedFAQs = JSON.parse(cachedFAQs).map(faq => {
+                if (lang === "en") return { question: faq.question, answer: faq.answer };                
+                return faq.translations[lang];
+            })
+            console.log("Fetched from cache");
+            return res.json(cachedFAQs);
+        }
         const faqs = await FAQ.find({}, `translations.${lang}`);
-        // redisClient.setex(`faqs:${lang}`, 3600, JSON.stringify(faqs)); // Cache for 1 hour
         console.log(faqs);
         
-        res.json(faqs);
+        res.status(200).json(faqs);
         
     } catch (err) {
         console.error(err,"Problem getting data");
