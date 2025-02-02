@@ -21,8 +21,8 @@ The system uses **Docker** to run both the app and Redis in separate containers.
 
 ### Steps to Run with Docker
 1. **Clone the Repository**:
-   git clone https://github.com/Chandra307/bharatFD.git
-   cd BharatFD
+   - git clone https://github.com/Chandra307/bharatFD.git and
+   - cd BharatFD
 2. **Create a .env File**: In the root of the project, create a *.env* file with the following content:
    `MONGO_CONNECTION_STRING=your_cloud_database_connection_string>`
 3. Build and Start the Application: Using **Docker Compose**, you can build and run the app and Redis containers:
